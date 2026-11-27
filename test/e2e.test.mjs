@@ -105,6 +105,72 @@ test('update + delete + add, then rollback restores the exact previous tree', { 
     assert.match(again.err, /already rolled back/);
 });
 
+test('nasty names survive update, delete and rollback too', { skip: SKIP_NO_BASH }, async () => {
+    const { repo, server, cfgDir, site } = setup();
+    assert.equal((await run(['apply', 'site', '--apply'], { cwd: cfgDir, now: () => Date.UTC(2026, 0, 5) })).code, 0);
+    const before = snapshot(server);
+    const names = Object.keys(NASTY);
+    const changes = {};
+    names.forEach((p, i) => { changes[p] = i % 2 ? null : 'changed ' + i + '\n'; });   // update half, delete half
+    commitAll(repo, changes);
+    const r = await run(['apply', 'site', '--apply'], { cwd: cfgDir, now: () => Date.UTC(2026, 0, 6) });
+    assert.equal(r.code, 0, r.all);
+    assert.match(r.out, /sent 5, deleted 5, hashes verified/);
+    names.forEach((p, i) => {
+        const abs = path.join(site, ...p.split('/'));
+        if (i % 2) assert.equal(fs.existsSync(abs), false, 'deleted: ' + p);
+        else assert.equal(fs.readFileSync(abs, 'utf8'), 'changed ' + i + '\n', 'updated: ' + p);
+    });
+    const rb = await run(['rollback', '20260106-000000', '--apply'], { cwd: cfgDir });
+    assert.equal(rb.code, 0, rb.all);
+    assert.deepEqual(snapshot(server), before);
+    for (const dir of [server, site, process.cwd(), cfgDir, repo]) assert.equal(fs.existsSync(path.join(dir, 'pwned')), false);
+});
+
+test('hash verification failure: no deploy record written, the printed rollback works without --force', { skip: SKIP_NO_BASH }, async () => {
+    const { repo, server, cfgDir, site } = setup({ 'f.txt': 'v1\n', 'g.txt': 'g1\n' });
+    assert.equal((await run(['apply', 'site', '--apply'], { cwd: cfgDir, now: () => Date.UTC(2026, 0, 7) })).code, 0);
+    const before = snapshot(server);
+    const stateBefore = fs.readFileSync(path.join(server, '.deploy', 'state', 'site.state'), 'utf8');
+    commitAll(repo, { 'f.txt': 'v2\n', 'g.txt': null, 'h.txt': 'new\n' });
+    // a transport that corrupts a file right after the tar stream is unpacked (disk error, concurrent writer, ...)
+    const inner = new LocalBashTransport({});
+    const transport = {
+        describe: () => 'corrupting test transport',
+        exec: async (cmd, input) => {
+            const r = await inner.exec(cmd, input);
+            if (cmd.includes('tar --no-same-owner -xf -')) fs.writeFileSync(path.join(site, 'f.txt'), 'corrupted\n');
+            return r;
+        }
+    };
+    const r = await run(['apply', 'site', '--apply'], { cwd: cfgDir, transport, now: () => Date.UTC(2026, 0, 8) });
+    assert.equal(r.code, 1, r.all);
+    assert.match(r.err, /site: verification failed/);
+    assert.match(r.err, /hash mismatch: f\.txt/);
+    assert.match(r.err, /Roll back with: vanilla-deploy rollback 20260108-000000 --apply/);
+    assert.equal(fs.readFileSync(path.join(server, '.deploy', 'state', 'site.state'), 'utf8'), stateBefore, 'deploy record untouched');
+    const rb = await run(['rollback', '20260108-000000', '--apply'], { cwd: cfgDir });
+    assert.equal(rb.code, 0, rb.all);
+    assert.deepEqual(snapshot(server), before, 'back to the state before the failed deploy');
+});
+
+test('rollback of a deploy that failed before reaching a target skips that target', { skip: SKIP_NO_BASH }, async () => {
+    const repoA = makeRepo({ 'a.txt': '1\n' });
+    const repoB = makeRepo({ 'b.txt': '1\n' });
+    const server = tmpDir('vd-server-');
+    const cfgDir = tmpDir('vd-cfg-');
+    writeConfig(cfgDir, localConfig(server, { a: { repo: repoA, remoteDir: 'a' }, b: { repo: repoB, remoteDir: 'b' } }));
+    const inner = new LocalBashTransport({});
+    const transport = { describe: () => 'failing test transport', exec: async (cmd, input) => (cmd.includes("/a' && tar") ? { code: 2, stdout: '', stderr: 'tar: disk full' } : inner.exec(cmd, input)) };
+    const r = await run(['apply', 'all', '--apply'], { cwd: cfgDir, transport, now: () => Date.UTC(2026, 0, 9) });
+    assert.equal(r.code, 1);
+    assert.match(r.err, /transfer to a failed \(exit 2\): tar: disk full/);
+    const rb = await run(['rollback', '20260109-000000', '--apply'], { cwd: cfgDir });
+    assert.equal(rb.code, 0, rb.all);
+    assert.match(rb.out, /b: not reached by deploy 20260109-000000/);
+    assert.deepEqual(snapshot(server).dirs.filter((d) => !d.startsWith('.deploy')), [], 'no stray folders');
+});
+
 test('rollback of a first deploy removes everything it created, including folders and the record', { skip: SKIP_NO_BASH }, async () => {
     const { server, cfgDir } = setup({ 'x/y/z.txt': 'z\n' });
     const before = snapshot(server);

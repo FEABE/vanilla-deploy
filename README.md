@@ -160,7 +160,8 @@ Purging is off when there is no `cloudflare` section, or when the env vars are m
   .deploy/state/<target>.state           deploy record: JSON header line, then "<blob sha> <path>" per file
   .deploy/backups/<id>/manifest.json     targets, heads, units and cache paths of that deploy
   .deploy/backups/<id>/<target>.tgz      files that deploy overwrote or deleted
-  .deploy/backups/<id>/<target>.added    files it created
+  .deploy/backups/<id>/<target>.saved    the list of files in the .tgz
+  .deploy/backups/<id>/<target>.added    files it created (written last: marks a complete backup)
   .deploy/backups/<id>/<target>.newdirs  folders it created
   .deploy/backups/<id>/<target>.state    the deploy record before it
 ```
@@ -173,7 +174,7 @@ Deploy ids are UTC timestamps (`YYYYMMDD-HHMMSS`, with `-2`, `-3`, ... if two de
 - **Only committed content.** Files come from git objects of `HEAD`. A dirty work tree stops `--apply` unless you pass `--allow-dirty`, and even then only `HEAD` is sent.
 - **Drift stops the deploy.** A file whose server bytes differ from what the last deploy wrote, or that this tool never deployed, is flagged, and `--apply` stops until you pass `--force`. Forced overwrites are backed up like any other. Server files that were never deployed and are not in your repo are never touched.
 - **Every write is verified.** The deploy record is updated only when every sent file hashes to its blob id and every removed file is gone. Otherwise the deploy stops and prints the rollback command.
-- **Exact rollback.** A rollback restores the overwritten and deleted files from the tarball (contents and modes), deletes the created files, removes the folders the deploy created (only if they are empty), and puts back the previous deploy record (or removes it after a first deploy). It refuses when a newer deploy has touched the same target since, or when the deploy was already rolled back, unless you pass `--force`.
+- **Exact rollback.** A rollback restores the overwritten and deleted files from the tarball (contents and modes), deletes the created files, removes the folders the deploy created (only if they are empty), and puts back the previous deploy record (or removes it after a first deploy). It refuses when a newer deploy has touched the same target since, or when the deploy was already rolled back, unless you pass `--force`. It also works for a deploy that failed halfway (the case the printed rollback command is for): targets the deploy never reached are skipped.
 - **Paths are validated, everything is quoted.** File names and `remoteDir` must be relative paths without `..`, `.` or empty segments, without backslashes, control characters (newline, CR, tab, NUL, ...) and leading or trailing spaces in a segment. Names that fail are refused with a clear message: rename them or `exclude` them. They are never skipped silently. Everything else (spaces, quotes, `$(...)`, backticks, `;`, `&`, a leading `-`, UTF-8) is carried safely:
   - values are single-quoted for bash;
   - file lists travel in quoted heredocs (`<<'EOF'`, never expanded);
