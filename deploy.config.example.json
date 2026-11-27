@@ -1,0 +1,49 @@
+{
+  "ssh": {
+    "host": "203.0.113.10",
+    "port": 22,
+    "user": "deploy",
+    "key": "~/.ssh/id_ed25519"
+  },
+  "remoteRoot": "/srv/example",
+  "restart": {
+    "mode": "user",
+    "timeoutSec": 120,
+    "last": ["example-proxy.service"]
+  },
+  "backups": {
+    "keepDays": 14,
+    "keepMin": 3
+  },
+  "targets": {
+    "api": {
+      "repo": "../example-api",
+      "remoteDir": "api",
+      "units": ["example-api.service"],
+      "health": "http://127.0.0.1:8080/health",
+      "exclude": ["test/**", "**/*.md", ".github/**"]
+    },
+    "web": {
+      "repo": "../example-web",
+      "remoteDir": "web",
+      "include": ["public/**", "server/**", "package.json"],
+      "units": ["example-web.service"],
+      "health": "http://127.0.0.1:8081/health",
+      "cache": {
+        "include": ["public/**"],
+        "stripPrefix": "public/"
+      }
+    },
+    "proxy": {
+      "repo": "../example-proxy",
+      "remoteDir": "proxy",
+      "units": ["example-proxy.service"],
+      "health": "http://127.0.0.1:8000/"
+    }
+  },
+  "cloudflare": {
+    "tokenEnv": "CLOUDFLARE_API_TOKEN",
+    "zoneEnv": "CLOUDFLARE_ZONE_ID",
+    "urlPrefix": "https://www.example.com/"
+  }
+}

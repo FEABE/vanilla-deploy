@@ -1,0 +1,34 @@
+{
+  "name": "vanilla-deploy",
+  "version": "0.1.0",
+  "description": "Dry-run-by-default deploys of git HEAD over ssh: blob-hash diffs, tar transfer, hash verification, backups and rollback.",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "vanilla-deploy": "bin/vanilla-deploy.mjs"
+  },
+  "files": [
+    "bin/",
+    "lib/",
+    "deploy.config.example.json",
+    "README.md",
+    "README.ko.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --test \"test/*.test.mjs\""
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "keywords": [
+    "deploy",
+    "ssh",
+    "git",
+    "rollback",
+    "systemd"
+  ],
+  "author": "FEABE",
+  "license": "MIT"
+}
