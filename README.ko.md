@@ -6,6 +6,12 @@ git 저장소의 커밋된 `HEAD` 를 ssh 로 서버에 배포하는 도구입�
 
 자세한 설정표와 동작 설명은 [README.md](README.md)(영문)에 있습니다. 이 문서는 요약입니다.
 
+의존성 없이 직접 만든 도구 모음:
+[vanilla-arch](https://github.com/FEABE/vanilla-arch) (구성도) ·
+[vanilla-kit](https://github.com/FEABE/vanilla-kit) (작은 모듈) ·
+[vanilla-build](https://github.com/FEABE/vanilla-build) (빌드) ·
+[vanilla-deploy](https://github.com/FEABE/vanilla-deploy) (배포)
+
 ## 동작 순서
 
 1. **계획.** 로컬 `HEAD` 의 파일별 blob 해시(`git ls-tree`)와 서버 파일의 해시(git 과 같은 방식으로 계산)를 비교하고, 서버의 배포 기록도 함께 읽습니다. 그 결과로 추가·수정·삭제할 파일과 *drift*(지난 배포 뒤 서버에서 직접 바뀐 파일)를 정리합니다.

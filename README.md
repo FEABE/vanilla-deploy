@@ -6,6 +6,12 @@ Zero dependencies: Node.js built-ins plus `git` and `ssh` on your machine, and `
 
 [한국어 README](README.ko.md)
 
+Part of a small family of zero-dependency, hand-written tools:
+[vanilla-arch](https://github.com/FEABE/vanilla-arch) (diagrams) ·
+[vanilla-kit](https://github.com/FEABE/vanilla-kit) (small modules) ·
+[vanilla-build](https://github.com/FEABE/vanilla-build) (build) ·
+[vanilla-deploy](https://github.com/FEABE/vanilla-deploy) (deploy)
+
 ```
 $ vanilla-deploy plan web
 vanilla-deploy 0.1.0 -> deploy@203.0.113.10:22 /srv/example
